@@ -13,220 +13,351 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for enhanced UI
+# ─── Dark Mode CSS ────────────────────────────────────────────────────────────
 st.markdown("""
-    <style>
-    /* Main container styling */
-    .main {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-    }
-    
-    /* Card-like container */
-    .stApp {
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    }
-    
-    /* Headers */
-    h1 {
-        color: #667eea;
-        font-weight: 800;
-        font-size: 3rem !important;
-        text-align: center;
-        margin-bottom: 0.5rem;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    h2 {
-        color: #764ba2;
-        font-weight: 700;
-        border-left: 5px solid #667eea;
-        padding-left: 1rem;
-        margin-top: 2rem;
-    }
-    
-    h3 {
-        color: #667eea;
-        font-weight: 600;
-    }
-    
-    /* Subtitle styling */
-    .subtitle {
-        text-align: center;
-        color: #666;
-        font-size: 1.3rem;
-        margin-bottom: 2rem;
-        font-weight: 300;
-    }
-    
-    /* Input fields */
-    .stSelectbox, .stNumberInput {
-        background: #f8f9fa;
-        border-radius: 10px;
-        padding: 0.5rem;
-    }
-    
-    /* Buttons */
-    .stButton > button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        padding: 1rem 3rem;
-        font-size: 1.2rem;
-        font-weight: 600;
-        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-        transition: all 0.3s ease;
-    }
-    
-    .stButton > button:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
-    }
-    
-    /* Metrics */
-    [data-testid="stMetricValue"] {
-        font-size: 2.5rem;
-        font-weight: 800;
-        color: #667eea;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
-        color: white;
-    }
-    
-    [data-testid="stSidebar"] * {
-        color: white !important;
-    }
-    
-    /* Success/Info boxes */
-    .stSuccess {
-        background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%);
-        border-radius: 15px;
-        padding: 1rem;
-    }
-    
-    .stInfo {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 15px;
-        border: 2px solid rgba(255, 255, 255, 0.4);
-    }
-    
-    /* Divider */
-    hr {
-        border: 0;
-        height: 3px;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        margin: 2rem 0;
-    }
-    
-    /* Footer */
-    .footer {
-        text-align: center;
-        color: #999;
-        font-size: 0.9rem;
-        margin-top: 3rem;
-        padding: 1rem;
-        border-top: 2px solid #eee;
-    }
-    
-    /* Columns */
-    [data-testid="column"] {
-        background: #fafafa;
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 0.5rem;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-    }
-    
-    /* Animation for result */
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .result-container {
-        animation: slideIn 0.5s ease-out;
-    }
-    </style>
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   PALETTE
+   bg-deep:     #0d1117      (near-black body)
+   bg-surface:  #161b22      (card / sidebar)
+   bg-elevated: #1c2333      (inputs, hover)
+   border:      #30363d      (subtle edges)
+   gold:        #f0b429      (primary accent – money)
+   gold-dim:    #9e7a19      (muted gold)
+   emerald:     #10b981      (success / positive)
+   rose:        #f43f5e      (error)
+   text:        #e6edf3      (body copy)
+   text-muted:  #8b949e      (secondary text)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Base ─────────────────────────────────────────────────────────── */
+html, body, .stApp, [data-testid="stAppViewContainer"],
+[data-testid="stHeader"], header {
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
+}
+.main .block-container { max-width: 1200px; padding-top: 2rem; }
+[data-testid="stBottomBlockContainer"] { background: #0d1117 !important; }
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+/* ── Typography ───────────────────────────────────────────────────── */
+h1, h2, h3, h4, p, span, li, label, div {
+    color: #e6edf3 !important;
+}
+h1 {
+    font-weight: 800 !important;
+    font-size: 2.6rem !important;
+    letter-spacing: -0.03em;
+    text-align: center;
+}
+h2 {
+    font-weight: 700 !important;
+    border-left: 4px solid #f0b429;
+    padding-left: 0.9rem;
+    margin-top: 1.8rem !important;
+}
+h3 { font-weight: 600 !important; color: #f0b429 !important; }
+
+.subtitle {
+    text-align: center;
+    color: #8b949e !important;
+    font-size: 1.15rem;
+    margin-bottom: 1.6rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+}
+
+/* ── Hero Feature Cards ───────────────────────────────────────────── */
+.hero-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 1.6rem 1.4rem;
+    text-align: center;
+    transition: border-color 0.3s, transform 0.3s;
+}
+.hero-card:hover {
+    border-color: #f0b429;
+    transform: translateY(-4px);
+}
+.hero-card .icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.hero-card .card-title {
+    color: #f0b429 !important;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 0.35rem;
+}
+.hero-card .card-desc {
+    color: #8b949e !important;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+/* ── Columns / Cards ──────────────────────────────────────────────── */
+[data-testid="column"] {
+    background: #161b22 !important;
+    border: 1px solid #30363d;
+    border-radius: 14px;
+    padding: 1.4rem !important;
+    margin: 0.35rem;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────── */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div:first-child {
+    background: #0d1117 !important;
+    border-right: 1px solid #1c2333 !important;
+}
+[data-testid="stSidebar"] * { color: #e6edf3 !important; }
+[data-testid="stSidebar"] hr {
+    border-color: #30363d !important;
+    opacity: 0.6;
+}
+[data-testid="stSidebar"] code {
+    color: #f0b429 !important;
+    background: #1c2333 !important;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    background: #161b22;
+    border-radius: 12px;
+    padding: 4px;
+    border: 1px solid #30363d;
+}
+.stTabs [data-baseweb="tab"] {
+    background: transparent !important;
+    color: #8b949e !important;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.6rem 1.4rem;
+    border: none !important;
+}
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    background: #1c2333 !important;
+    color: #f0b429 !important;
+    box-shadow: 0 0 12px rgba(240,180,41,0.12);
+}
+.stTabs [data-baseweb="tab-highlight"] { display: none; }
+.stTabs [data-baseweb="tab-border"] { display: none; }
+
+/* ── Inputs ───────────────────────────────────────────────────────── */
+[data-testid="stSelectbox"],
+[data-testid="stNumberInput"] {
+    background: transparent !important;
+}
+[data-baseweb="select"] > div,
+[data-baseweb="input"] > div {
+    background: #1c2333 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 10px !important;
+    color: #e6edf3 !important;
+}
+[data-baseweb="select"] > div:focus-within,
+[data-baseweb="input"] > div:focus-within {
+    border-color: #f0b429 !important;
+    box-shadow: 0 0 0 2px rgba(240,180,41,0.18) !important;
+}
+/* dropdown menu */
+[data-baseweb="menu"], [data-baseweb="popover"] > div {
+    background: #161b22 !important;
+    border: 1px solid #30363d !important;
+}
+[data-baseweb="menu"] li { color: #e6edf3 !important; }
+[data-baseweb="menu"] li:hover { background: #1c2333 !important; }
+[data-baseweb="menu"] li[aria-selected="true"] { background: #1c2333 !important; }
+
+/* ── Primary Button ───────────────────────────────────────────────── */
+.stButton > button[kind="primary"],
+.stButton > button {
+    background: linear-gradient(135deg, #f0b429 0%, #d4990a 100%) !important;
+    color: #0d1117 !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.85rem 2.4rem !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    box-shadow: 0 6px 24px rgba(240,180,41,0.30);
+    transition: all 0.25s ease;
+}
+.stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 32px rgba(240,180,41,0.45) !important;
+    filter: brightness(1.08);
+}
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+/* ── Metrics ──────────────────────────────────────────────────────── */
+[data-testid="stMetricValue"] {
+    font-size: 2.4rem !important;
+    font-weight: 800 !important;
+    color: #10b981 !important;
+    letter-spacing: -0.02em;
+}
+[data-testid="stMetricLabel"] {
+    color: #8b949e !important;
+    font-weight: 500;
+}
+
+/* ── Success / Info / Error Alerts ─────────────────────────────────── */
+[data-testid="stAlert"] {
+    border-radius: 12px !important;
+}
+/* success */
+div[data-testid="stAlert"][data-baseweb*="positive"],
+.element-container .stAlert:has([data-testid="stMarkdownContainer"]) {
+    background: rgba(16,185,129,0.08) !important;
+    border: 1px solid rgba(16,185,129,0.30) !important;
+    color: #34d399 !important;
+}
+/* info */
+div[data-testid="stAlert"]:not([data-baseweb*="positive"]):not([data-baseweb*="negative"]) {
+    background: rgba(240,180,41,0.06) !important;
+    border: 1px solid rgba(240,180,41,0.20) !important;
+}
+
+/* ── Divider ──────────────────────────────────────────────────────── */
+hr {
+    border: 0 !important;
+    height: 1px !important;
+    background: linear-gradient(90deg,
+        transparent 0%, #30363d 20%, #f0b429 50%, #30363d 80%, transparent 100%) !important;
+    margin: 2rem 0 !important;
+    opacity: 0.6;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+.footer-dark {
+    text-align: center;
+    margin-top: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid #30363d;
+}
+.footer-dark p {
+    color: #484f58 !important;
+    font-size: 0.88rem !important;
+    margin: 0.25rem 0;
+}
+.footer-dark strong { color: #8b949e !important; }
+
+/* ── Spinner ──────────────────────────────────────────────────────── */
+.stSpinner > div > div { border-top-color: #f0b429 !important; }
+
+/* ── Summary card ─────────────────────────────────────────────────── */
+.summary-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+}
+.summary-card li {
+    color: #8b949e !important;
+    padding: 0.15rem 0;
+}
+.summary-card strong { color: #e6edf3 !important; }
+
+/* ── Misc ─────────────────────────────────────────────────────────── */
+[data-testid="stCaption"] { color: #484f58 !important; }
+code { color: #f0b429 !important; background: #1c2333 !important; border-radius: 4px; }
+
+/* subtle glow on metric hover */
+[data-testid="stMetric"] {
+    transition: box-shadow 0.3s;
+    border-radius: 12px;
+    padding: 0.5rem;
+}
+[data-testid="stMetric"]:hover {
+    box-shadow: 0 0 20px rgba(16,185,129,0.12);
+}
+
+/* animation */
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.result-container { animation: fadeUp 0.45s ease-out; }
+</style>
 """, unsafe_allow_html=True)
 
-# Hero Section
+# ─── Hero Section ─────────────────────────────────────────────────────────────
 st.markdown("<h1>💰 Developer Salary Predictor</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>AI-Powered Salary Predictions Based on Stack Overflow Developer Survey Data</p>", unsafe_allow_html=True)
+st.markdown(
+    "<p class='subtitle'>Predict compensation using ML models trained on Stack Overflow survey data</p>",
+    unsafe_allow_html=True,
+)
 
-# Feature highlights
 col_a, col_b, col_c = st.columns(3)
 with col_a:
-    st.markdown("### 🎯 Accurate")
-    st.markdown("XGBoost ML model trained on real survey data")
+    st.markdown("""<div class='hero-card'>
+        <div class='icon'>🎯</div>
+        <div class='card-title'>Accurate</div>
+        <div class='card-desc'>XGBoost gradient boosting trained on real developer survey data</div>
+    </div>""", unsafe_allow_html=True)
 with col_b:
-    st.markdown("### 🌍 Global")
-    st.markdown(f"Support for {len(valid_categories['Country'])}+ countries")
+    st.markdown(f"""<div class='hero-card'>
+        <div class='icon'>🌍</div>
+        <div class='card-title'>Global</div>
+        <div class='card-desc'>{len(valid_categories['Country'])}+ countries with local currency conversion</div>
+    </div>""", unsafe_allow_html=True)
 with col_c:
-    st.markdown("### ⚡ Instant")
-    st.markdown("Get predictions in seconds")
+    st.markdown("""<div class='hero-card'>
+        <div class='icon'>⚡</div>
+        <div class='card-title'>Instant</div>
+        <div class='card-desc'>Get your personalized salary estimate in seconds</div>
+    </div>""", unsafe_allow_html=True)
 
-# Sidebar with info
+# ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📊 About This App")
+    st.markdown("## 📊 About")
     st.markdown("---")
-    
+
     st.markdown("""
-        ### 🤖 Machine Learning Model
-        This app uses an **XGBoost** (gradient boosting) model trained on 
-        Stack Overflow Developer Survey data.
-        
-        ### 📈 Prediction Factors
-        The model analyzes:
-        
-        - 🌍 **Country** - Geographic location
-        - 💻 **Coding Experience** - Years of coding
-        - 👔 **Work Experience** - Professional years
-        - 🎓 **Education** - Academic background
-        - 🔧 **Developer Type** - Role specialization
-        - 🏢 **Industry** - Work sector
-        - 👤 **Age** - Age range
-        - 👥 **Role Type** - IC vs Manager
+**XGBoost** model trained on the Stack Overflow Developer Survey.
+
+#### Prediction Factors
+| | Factor |
+|---|---|
+| 🌍 | Country |
+| 💻 | Coding experience |
+| 👔 | Work experience |
+| 🎓 | Education |
+| 🔧 | Developer type |
+| 🏢 | Industry |
+| 👤 | Age |
+| 👥 | IC / Manager |
     """)
-    
-    st.info("💡 **Tip:** Results are estimates based on survey averages and may vary from actual salaries.")
-    
+
+    st.info("💡 Results are estimates based on survey averages.")
+
     st.markdown("---")
-    st.markdown("### 📋 Model Coverage")
-    
+    st.markdown("#### Coverage")
+
     coverage_data = {
         "🌍 Countries": len(valid_categories['Country']),
-        "🎓 Education Levels": len(valid_categories['EdLevel']),
-        "👨‍💻 Developer Types": len(valid_categories['DevType']),
+        "🎓 Education": len(valid_categories['EdLevel']),
+        "👨‍💻 Dev Types": len(valid_categories['DevType']),
         "🏢 Industries": len(valid_categories['Industry']),
         "📅 Age Ranges": len(valid_categories['Age']),
-        "👥 Role Types": len(valid_categories['ICorPM'])
+        "👥 Roles": len(valid_categories['ICorPM']),
     }
-    
+
     for label, count in coverage_data.items():
         st.markdown(f"**{label}:** `{count}`")
-    
-    st.caption("✨ Only validated values from training data are available")
-    
+
+    st.caption("Only values from the training set are available.")
+
     st.markdown("---")
-    st.markdown("### 🚀 Tech Stack")
-    st.markdown("""
-        - **Frontend:** Streamlit
-        - **ML Model:** XGBoost
-        - **Data:** Stack Overflow Survey
-        - **Validation:** Pydantic
-    """)
+    st.markdown("#### Tech Stack")
+    st.markdown("Streamlit · XGBoost · Pydantic · Pandas")
 
 # Main input form
 st.markdown("---")
@@ -350,27 +481,29 @@ with tab2:
 # Tab 3: Prediction
 with tab3:
     st.markdown("### 🎯 Ready to Predict?")
-    st.markdown("Review your information and click the button below to get your salary prediction.")
+    st.markdown("Review your information and hit the button below.")
     
     # Display summary
     st.markdown("#### 📋 Summary")
     summary_col1, summary_col2 = st.columns(2)
     
     with summary_col1:
-        st.markdown(f"""
-        - **Country:** {country}
-        - **Age:** {age}
-        - **Education:** {education}
-        - **Role:** {ic_or_pm}
-        """)
+        st.markdown(f"""<div class='summary-card'>
+        <ul>
+            <li><strong>Country:</strong> {country}</li>
+            <li><strong>Age:</strong> {age}</li>
+            <li><strong>Education:</strong> {education}</li>
+            <li><strong>Role:</strong> {ic_or_pm}</li>
+        </ul></div>""", unsafe_allow_html=True)
     
     with summary_col2:
-        st.markdown(f"""
-        - **Total Coding Years:** {years}
-        - **Work Experience:** {work_exp} years
-        - **Developer Type:** {dev_type}
-        - **Industry:** {industry}
-        """)
+        st.markdown(f"""<div class='summary-card'>
+        <ul>
+            <li><strong>Coding Years:</strong> {years}</li>
+            <li><strong>Work Exp:</strong> {work_exp} yrs</li>
+            <li><strong>Dev Type:</strong> {dev_type}</li>
+            <li><strong>Industry:</strong> {industry}</li>
+        </ul></div>""", unsafe_allow_html=True)
     
     st.markdown("---")
 
@@ -482,19 +615,13 @@ with tab3:
             st.error(f"❌ **Error:** {str(e)}")
             st.exception(e)
 
-# Footer
+# ─── Footer ───────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
-    <div class='footer'>
-        <p><strong>Developer Salary Predictor</strong> | AI-Powered Predictions</p>
-        <p>
-            🚀 Built with <strong>Streamlit</strong> | 
-            📊 Data from <strong>Stack Overflow Developer Survey</strong> | 
-            🤖 Model: <strong>XGBoost</strong>
-        </p>
-        <p style='font-size: 0.8rem; color: #bbb;'>
-            © 2026 AI-Salary-Predictor | Made with ❤️ by Developers, for Developers
-        </p>
-    </div>
+<div class='footer-dark'>
+    <p><strong>Developer Salary Predictor</strong></p>
+    <p>Streamlit · Stack Overflow Survey · XGBoost</p>
+    <p style='margin-top:0.5rem;'>© 2026 — built for developers</p>
+</div>
 """, unsafe_allow_html=True)
 
