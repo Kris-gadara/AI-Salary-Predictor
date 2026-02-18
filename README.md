@@ -1,5 +1,9 @@
 # 💰 AI Salary Predictor
 
+
+https://ai-salary-estimator.streamlit.app/
+
+
 <div align="center">
 
 ![Developer Salary Predictor](https://img.shields.io/badge/AI-Salary%20Predictor-blueviolet?style=for-the-badge)
