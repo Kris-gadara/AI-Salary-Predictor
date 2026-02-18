@@ -1,7 +1,8 @@
 # 💰 AI Salary Predictor
 
 
-https://ai-salary-estimator.streamlit.app/
+## 🌐 Live Demo
+👉 https://ai-salary-estimator.streamlit.app/
 
 
 <div align="center">
