@@ -1,5 +1,15 @@
 """Streamlit web app for salary prediction."""
 
+import sys
+from pathlib import Path
+
+# Ensure the 'developer_salary_prediction' directory is on sys.path
+# so that `from src.*` imports work regardless of working directory
+# (Streamlit Cloud runs from the repo root).
+_APP_DIR = Path(__file__).resolve().parent
+if str(_APP_DIR) not in sys.path:
+    sys.path.insert(0, str(_APP_DIR))
+
 import streamlit as st
 
 from src.infer import predict_salary, get_local_currency, valid_categories

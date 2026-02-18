@@ -4,8 +4,11 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
+# Resolve paths relative to this file's location (works regardless of CWD)
+_BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Load configuration once at module level
-_config_path = Path("config/model_parameters.yaml")
+_config_path = _BASE_DIR / "config" / "model_parameters.yaml"
 with open(_config_path, "r") as f:
     _config = yaml.safe_load(f)
 

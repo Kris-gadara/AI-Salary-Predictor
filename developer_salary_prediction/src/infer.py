@@ -9,8 +9,11 @@ import yaml
 from src.schema import SalaryInput
 from src.preprocessing import prepare_features
 
+# Resolve paths relative to this file's location (works regardless of CWD)
+_BASE_DIR = Path(__file__).resolve().parent.parent
+
 # Load model and artifacts at module level
-model_path = Path("models/model.pkl")
+model_path = _BASE_DIR / "models" / "model.pkl"
 
 if not model_path.exists():
     raise FileNotFoundError(
@@ -23,7 +26,7 @@ with open(model_path, "rb") as f:
     feature_columns = artifacts["feature_columns"]
 
 # Load valid categories for input validation
-valid_categories_path = Path("config/valid_categories.yaml")
+valid_categories_path = _BASE_DIR / "config" / "valid_categories.yaml"
 
 if not valid_categories_path.exists():
     raise FileNotFoundError(
@@ -34,7 +37,7 @@ with open(valid_categories_path, "r") as f:
     valid_categories = yaml.safe_load(f)
 
 # Load currency conversion rates
-currency_rates_path = Path("config/currency_rates.yaml")
+currency_rates_path = _BASE_DIR / "config" / "currency_rates.yaml"
 currency_rates = {}
 if currency_rates_path.exists():
     with open(currency_rates_path, "r") as f:
