@@ -25,7 +25,6 @@ st.set_page_config(
 
 # ─── Dark Mode CSS ────────────────────────────────────────────────────────────
 st.markdown("""
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <style>
 /* ═══════════════════════════════════════════════════════════════════
    PALETTE
@@ -594,7 +593,7 @@ code {
         padding: 0 !important;
     }
 }
-</meta>
+</style>
 """, unsafe_allow_html=True)
 
 # ─── Hero Section ─────────────────────────────────────────────────────────────
