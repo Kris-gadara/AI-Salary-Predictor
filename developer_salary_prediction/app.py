@@ -1,935 +1,361 @@
-"""Streamlit web app for salary prediction."""
+"""FastAPI web app for salary prediction."""
 
 import sys
+from html import escape
 from pathlib import Path
 
-# Ensure the 'developer_salary_prediction' directory is on sys.path
-# so that `from src.*` imports work regardless of working directory
-# (Streamlit Cloud runs from the repo root).
+import uvicorn
+from fastapi import FastAPI, Query
+from fastapi.responses import HTMLResponse, JSONResponse
+
+# Ensure the 'developer_salary_prediction' directory is on sys.path so imports
+# work regardless of where the server is started from.
 _APP_DIR = Path(__file__).resolve().parent
 if str(_APP_DIR) not in sys.path:
     sys.path.insert(0, str(_APP_DIR))
 
-import streamlit as st
-
-from src.infer import predict_salary, get_local_currency, valid_categories
+from src.infer import get_local_currency, predict_salary, valid_categories
 from src.schema import SalaryInput
 
-# Page configuration
-st.set_page_config(
-    page_title="Developer Salary Predictor | AI-Powered Predictions",
-    page_icon="💰",
-    layout="wide",
-    initial_sidebar_state="expanded",
+
+app = FastAPI(title="Developer Salary Predictor", version="1.0.0")
+
+VALID_COUNTRIES = valid_categories["Country"]
+VALID_EDUCATION_LEVELS = valid_categories["EdLevel"]
+VALID_DEV_TYPES = valid_categories["DevType"]
+VALID_INDUSTRIES = valid_categories["Industry"]
+VALID_AGES = valid_categories["Age"]
+VALID_IC_OR_PM = valid_categories["ICorPM"]
+
+
+def _default_value(options: list[str], preferred: str) -> str:
+    return preferred if preferred in options else options[0]
+
+
+DEFAULT_COUNTRY = _default_value(VALID_COUNTRIES, "United States of America")
+DEFAULT_EDUCATION = _default_value(
+    VALID_EDUCATION_LEVELS, "Bachelor's degree (B.A., B.S., B.Eng., etc.)"
 )
+DEFAULT_DEV_TYPE = _default_value(VALID_DEV_TYPES, "Developer, back-end")
+DEFAULT_INDUSTRY = _default_value(VALID_INDUSTRIES, "Software Development")
+DEFAULT_AGE = _default_value(VALID_AGES, "25-34 years old")
+DEFAULT_IC_OR_PM = _default_value(VALID_IC_OR_PM, "Individual contributor")
 
-# ─── Dark Mode CSS ────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-/* ═══════════════════════════════════════════════════════════════════
-   PALETTE
-   bg-deep:     #0d1117      (near-black body)
-   bg-surface:  #161b22      (card / sidebar)
-   bg-elevated: #1c2333      (inputs, hover)
-   border:      #30363d      (subtle edges)
-   gold:        #f0b429      (primary accent – money)
-   gold-dim:    #9e7a19      (muted gold)
-   emerald:     #10b981      (success / positive)
-   rose:        #f43f5e      (error)
-   text:        #e6edf3      (body copy)
-   text-muted:  #8b949e      (secondary text)
-   ═══════════════════════════════════════════════════════════════════ */
 
-/* ── Base ─────────────────────────────────────────────────────────── */
-*, *::before, *::after {
-    box-sizing: border-box;
-}
+def _option_html(options: list[str], selected: str) -> str:
+    return "\n".join(
+        f'<option value="{escape(option)}" {"selected" if option == selected else ""}>'
+        f"{escape(option)}</option>"
+        for option in options
+    )
 
-html, body, .stApp, [data-testid="stAppViewContainer"],
-[data-testid="stHeader"], header {
-    background-color: #0d1117 !important;
-    color: #e6edf3 !important;
-}
-.main .block-container { 
-    max-width: 1200px; 
-    padding: clamp(1rem, 3vw, 2rem);
-    width: 100%;
-}
-[data-testid="stBottomBlockContainer"] { background: #0d1117 !important; }
 
-/* ── Scrollbar ────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: #0d1117; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
+def _card(title: str, body: str) -> str:
+    return f"""
+    <div class="card">
+      <div class="card-title">{escape(title)}</div>
+      <div class="card-body">{body}</div>
+    </div>
+    """
 
-/* ── Typography ───────────────────────────────────────────────────── */
-h1, h2, h3, h4, p, span, li, label, div {
-    color: #e6edf3 !important;
-}
-h1 {
-    font-weight: 800 !important;
-    font-size: clamp(1.8rem, 5vw, 2.6rem) !important;
-    letter-spacing: -0.03em;
-    text-align: center;
-    line-height: 1.2 !important;
-}
-h2 {
-    font-weight: 700 !important;
-    border-left: 4px solid #f0b429;
-    padding-left: 0.9rem;
-    margin-top: 1.8rem !important;
-    font-size: clamp(1.3rem, 3.5vw, 1.75rem) !important;
-}
-h3 { 
-    font-weight: 600 !important; 
-    color: #f0b429 !important; 
-    font-size: clamp(1.1rem, 2.5vw, 1.4rem) !important;
-}
 
-.subtitle {
-    text-align: center;
-    color: #8b949e !important;
-    font-size: clamp(0.95rem, 2.5vw, 1.15rem);
-    margin-bottom: 1.6rem;
-    font-weight: 400;
-    letter-spacing: 0.01em;
-    padding: 0 1rem;
-}
+def _metric(label: str, value: str, subtitle: str = "") -> str:
+    subtitle_html = f'<div class="metric-subtitle">{escape(subtitle)}</div>' if subtitle else ""
+    return f"""
+    <div class="metric">
+      <div class="metric-label">{escape(label)}</div>
+      <div class="metric-value">{escape(value)}</div>
+      {subtitle_html}
+    </div>
+    """
 
-/* ── Hero Feature Cards ───────────────────────────────────────────── */
-.hero-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 14px;
-    padding: clamp(1rem, 3vw, 1.6rem) clamp(0.8rem, 2.5vw, 1.4rem);
-    text-align: center;
-    transition: border-color 0.3s, transform 0.3s;
-    min-height: 140px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-.hero-card:hover {
-    border-color: #f0b429;
-    transform: translateY(-4px);
-}
-.hero-card .icon { 
-    font-size: clamp(1.5rem, 4vw, 2rem); 
-    margin-bottom: 0.5rem; 
-}
-.hero-card .card-title {
-    color: #f0b429 !important;
-    font-weight: 700;
-    font-size: clamp(1rem, 2vw, 1.1rem);
-    margin-bottom: 0.35rem;
-}
-.hero-card .card-desc {
-    color: #8b949e !important;
-    font-size: clamp(0.85rem, 1.8vw, 0.92rem);
-    line-height: 1.45;
-}
 
-/* ── Columns / Cards ──────────────────────────────────────────────── */
-[data-testid="column"] {
-    background: #161b22 !important;
-    border: 1px solid #30363d;
-    border-radius: 14px;
-    padding: clamp(1rem, 2.5vw, 1.4rem) !important;
-    margin: 0.35rem;
-}
+def _result_panel(salary: float, country: str) -> str:
+    local = get_local_currency(country, salary)
+    result_cards = [
+        _metric("Annual Salary (USD)", f"${salary:,.0f}", "Predicted yearly compensation in USD"),
+        _metric("Monthly (USD)", f"${salary / 12:,.0f}", "Approximate monthly salary"),
+        _metric("Hourly (USD)", f"${salary / (52 * 40):,.0f}", "Assumes a 40 hour work week"),
+        _metric("Weekly (USD)", f"${salary / 52:,.0f}", "Approximate weekly salary"),
+    ]
 
-/* ── Sidebar ──────────────────────────────────────────────────────── */
-[data-testid="stSidebar"],
-[data-testid="stSidebar"] > div:first-child {
-    background: #0d1117 !important;
-    border-right: 1px solid #1c2333 !important;
-}
-[data-testid="stSidebar"] * { color: #e6edf3 !important; }
-[data-testid="stSidebar"] hr {
-    border-color: #30363d !important;
-    opacity: 0.6;
-}
-[data-testid="stSidebar"] code {
-    color: #f0b429 !important;
-    background: #1c2333 !important;
-}
-[data-testid="stSidebar"] table {
-    font-size: clamp(0.8rem, 1.5vw, 0.9rem) !important;
-}
-[data-testid="stSidebar"] .streamlit-expanderHeader {
-    font-size: clamp(0.9rem, 2vw, 1rem) !important;
-}
-
-/* ── Tabs ─────────────────────────────────────────────────────────── */
-.stTabs [data-baseweb="tab-list"] {
-    gap: 0;
-    background: #161b22;
-    border-radius: 12px;
-    padding: 4px;
-    border: 1px solid #30363d;
-    flex-wrap: wrap;
-}
-.stTabs [data-baseweb="tab"] {
-    background: transparent !important;
-    color: #8b949e !important;
-    border-radius: 10px;
-    font-weight: 600;
-    padding: clamp(0.5rem, 1.5vw, 0.6rem) clamp(0.8rem, 2.5vw, 1.4rem);
-    border: none !important;
-    font-size: clamp(0.85rem, 1.8vw, 1rem);
-    white-space: nowrap;
-}
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
-    background: #1c2333 !important;
-    color: #f0b429 !important;
-    box-shadow: 0 0 12px rgba(240,180,41,0.12);
-}
-.stTabs [data-baseweb="tab-highlight"] { display: none; }
-.stTabs [data-baseweb="tab-border"] { display: none; }
-
-/* ── Inputs ───────────────────────────────────────────────────────── */
-[data-testid="stSelectbox"],
-[data-testid="stNumberInput"] {
-    background: transparent !important;
-}
-[data-baseweb="select"] > div,
-[data-baseweb="input"] > div {
-    background: #1c2333 !important;
-    border: 1px solid #30363d !important;
-    border-radius: 10px !important;
-    color: #e6edf3 !important;
-    min-height: 44px;
-    font-size: clamp(0.9rem, 2vw, 1rem) !important;
-}
-[data-baseweb="select"] > div:focus-within,
-[data-baseweb="input"] > div:focus-within {
-    border-color: #f0b429 !important;
-    box-shadow: 0 0 0 2px rgba(240,180,41,0.18) !important;
-}
-/* dropdown menu */
-[data-baseweb="menu"], [data-baseweb="popover"] > div {
-    background: #161b22 !important;
-    border: 1px solid #30363d !important;
-    max-height: 60vh;
-    overflow-y: auto;
-}
-[data-baseweb="menu"] li { 
-    color: #e6edf3 !important; 
-    min-height: 44px;
-    padding: 0.75rem 1rem;
-    font-size: clamp(0.9rem, 2vw, 1rem);
-}
-[data-baseweb="menu"] li:hover { background: #1c2333 !important; }
-[data-baseweb="menu"] li[aria-selected="true"] { background: #1c2333 !important; }
-
-/* Input labels */
-label {
-    font-size: clamp(0.9rem, 2vw, 1rem) !important;
-    margin-bottom: 0.5rem !important;
-}
-
-/* ── Primary Button ───────────────────────────────────────────────── */
-.stButton > button[kind="primary"],
-.stButton > button {
-    background: linear-gradient(135deg, #f0b429 0%, #d4990a 100%) !important;
-    color: #0d1117 !important;
-    border: none !important;
-    border-radius: 12px !important;
-    padding: clamp(0.75rem, 2vw, 0.85rem) clamp(1.5rem, 4vw, 2.4rem) !important;
-    font-size: clamp(1rem, 2.2vw, 1.1rem) !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.02em;
-    box-shadow: 0 6px 24px rgba(240,180,41,0.30);
-    transition: all 0.25s ease;
-    min-height: 48px;
-    width: 100%;
-}
-.stButton > button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 32px rgba(240,180,41,0.45) !important;
-    filter: brightness(1.08);
-}
-.stButton > button:active {
-    transform: translateY(0);
-}
-
-/* ── Metrics ──────────────────────────────────────────────────────── */
-[data-testid="stMetricValue"] {
-    font-size: clamp(1.5rem, 5vw, 2.4rem) !important;
-    font-weight: 800 !important;
-    color: #10b981 !important;
-    letter-spacing: -0.02em;
-}
-[data-testid="stMetricLabel"] {
-    color: #8b949e !important;
-    font-weight: 500;
-    font-size: clamp(0.85rem, 1.8vw, 1rem) !important;
-}
-
-/* ── Success / Info / Error Alerts ─────────────────────────────────── */
-[data-testid="stAlert"] {
-    border-radius: 12px !important;
-    padding: clamp(0.8rem, 2vw, 1rem) !important;
-    font-size: clamp(0.85rem, 1.8vw, 0.95rem) !important;
-}
-/* success */
-div[data-testid="stAlert"][data-baseweb*="positive"],
-.element-container .stAlert:has([data-testid="stMarkdownContainer"]) {
-    background: rgba(16,185,129,0.08) !important;
-    border: 1px solid rgba(16,185,129,0.30) !important;
-    color: #34d399 !important;
-}
-/* info */
-div[data-testid="stAlert"]:not([data-baseweb*="positive"]):not([data-baseweb*="negative"]) {
-    background: rgba(240,180,41,0.06) !important;
-    border: 1px solid rgba(240,180,41,0.20) !important;
-}
-/* error */
-div[data-testid="stAlert"][data-baseweb*="negative"] {
-    background: rgba(244,63,94,0.08) !important;
-    border: 1px solid rgba(244,63,94,0.30) !important;
-    color: #fb7185 !important;
-}
-
-/* ── Divider ──────────────────────────────────────────────────────── */
-hr {
-    border: 0 !important;
-    height: 1px !important;
-    background: linear-gradient(90deg,
-        transparent 0%, #30363d 20%, #f0b429 50%, #30363d 80%, transparent 100%) !important;
-    margin: clamp(1rem, 4vw, 2rem) 0 !important;
-    opacity: 0.6;
-}
-
-/* ── Footer ───────────────────────────────────────────────────────── */
-.footer-dark {
-    text-align: center;
-    margin-top: clamp(2rem, 5vw, 3rem);
-    padding: clamp(1rem, 3vw, 1.5rem) 0;
-    border-top: 1px solid #30363d;
-}
-.footer-dark p {
-    color: #484f58 !important;
-    font-size: clamp(0.8rem, 1.6vw, 0.88rem) !important;
-    margin: 0.25rem 0;
-}
-.footer-dark strong { color: #8b949e !important; }
-
-/* ── Spinner ──────────────────────────────────────────────────────── */
-.stSpinner > div > div { 
-    border-top-color: #f0b429 !important; 
-    width: clamp(40px, 8vw, 60px) !important;
-    height: clamp(40px, 8vw, 60px) !important;
-}
-
-/* ── Summary card ─────────────────────────────────────────────────── */
-.summary-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 12px;
-    padding: clamp(1rem, 2.5vw, 1.2rem) clamp(1rem, 3vw, 1.4rem);
-}
-.summary-card li {
-    color: #8b949e !important;
-    padding: 0.15rem 0;
-    font-size: clamp(0.85rem, 1.8vw, 0.95rem);
-    line-height: 1.6;
-}
-.summary-card strong { 
-    color: #e6edf3 !important; 
-    font-size: clamp(0.85rem, 1.8vw, 0.95rem);
-}
-.summary-card ul {
-    padding-left: 1.2rem;
-    margin: 0;
-}
-
-/* ── Misc ─────────────────────────────────────────────────────────── */
-[data-testid="stCaption"] { 
-    color: #484f58 !important; 
-    font-size: clamp(0.75rem, 1.5vw, 0.85rem) !important;
-}
-code { 
-    color: #f0b429 !important; 
-    background: #1c2333 !important; 
-    border-radius: 4px; 
-    padding: 0.15rem 0.4rem;
-    font-size: clamp(0.8rem, 1.6vw, 0.9rem);
-}
-
-/* subtle glow on metric hover */
-[data-testid="stMetric"] {
-    transition: box-shadow 0.3s;
-    border-radius: 12px;
-    padding: clamp(0.3rem, 1vw, 0.5rem);
-}
-[data-testid="stMetric"]:hover {
-    box-shadow: 0 0 20px rgba(16,185,129,0.12);
-}
-
-/* animation */
-@keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-.result-container { animation: fadeUp 0.45s ease-out; }
-
-/* ═══════════════════════════════════════════════════════════════════
-   RESPONSIVE MEDIA QUERIES
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* Mobile devices (portrait, up to 600px) */
-@media only screen and (max-width: 600px) {
-    .main .block-container {
-        padding: 1rem 0.5rem !important;
-    }
-    
-    h1 {
-        font-size: 1.8rem !important;
-        margin-bottom: 0.5rem !important;
-    }
-    
-    h2 {
-        font-size: 1.3rem !important;
-        margin-top: 1rem !important;
-    }
-    
-    .subtitle {
-        font-size: 0.95rem !important;
-        padding: 0 0.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* Stack columns vertically on mobile */
-    [data-testid="column"] {
-        margin: 0.5rem 0 !important;
-        padding: 1rem !important;
-    }
-    
-    /* Hero cards more compact */
-    .hero-card {
-        padding: 1rem 0.8rem;
-        min-height: 120px;
-        margin-bottom: 0.5rem;
-    }
-    
-    .hero-card .icon {
-        font-size: 1.5rem;
-    }
-    
-    .hero-card .card-title {
-        font-size: 1rem;
-    }
-    
-    .hero-card .card-desc {
-        font-size: 0.85rem;
-    }
-    
-    /* Tabs take full width */
-    .stTabs [data-baseweb="tab"] {
-        font-size: 0.85rem;
-        padding: 0.5rem 0.8rem;
-    }
-    
-    /* Button adjustments */
-    .stButton > button {
-        padding: 0.75rem 1.5rem !important;
-        font-size: 1rem !important;
-    }
-    
-    /* Metrics smaller on mobile */
-    [data-testid="stMetricValue"] {
-        font-size: 1.5rem !important;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
-    }
-    
-    /* Summary cards */
-    .summary-card {
-        padding: 1rem !important;
-        margin-bottom: 1rem;
-    }
-    
-    .summary-card li {
-        font-size: 0.85rem;
-    }
-    
-    /* Sidebar adjustments for mobile */
-    [data-testid="stSidebar"] {
-        max-width: 280px !important;
-    }
-    
-    /* Footer text smaller */
-    .footer-dark p {
-        font-size: 0.8rem !important;
-    }
-    
-    /* Inputs touch-friendly */
-    [data-baseweb="select"] > div,
-    [data-baseweb="input"] > div {
-        min-height: 48px;
-        font-size: 1rem !important;
-    }
-    
-    [data-baseweb="menu"] li {
-        min-height: 48px;
-        padding: 0.85rem 1rem;
-    }
-}
-
-/* Tablets (601px - 900px) */
-@media only screen and (min-width: 601px) and (max-width: 900px) {
-    .main .block-container {
-        padding: 1.5rem 1rem !important;
-    }
-    
-    h1 {
-        font-size: 2.2rem !important;
-    }
-    
-    h2 {
-        font-size: 1.5rem !important;
-    }
-    
-    .subtitle {
-        font-size: 1.05rem !important;
-    }
-    
-    .hero-card {
-        padding: 1.3rem 1.1rem;
-    }
-    
-    [data-testid="column"] {
-        padding: 1.2rem !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        font-size: 0.95rem;
-        padding: 0.55rem 1.2rem;
-    }
-    
-    [data-testid="stMetricValue"] {
-        font-size: 2rem !important;
-    }
-}
-
-/* Small desktops (901px - 1200px) */
-@media only screen and (min-width: 901px) and (max-width: 1200px) {
-    .main .block-container {
-        max-width: 1100px;
-        padding: 1.8rem !important;
-    }
-    
-    h1 {
-        font-size: 2.4rem !important;
-    }
-    
-    .hero-card {
-        padding: 1.5rem 1.3rem;
-    }
-}
-
-/* Large screens (1201px+) */
-@media only screen and (min-width: 1201px) {
-    .main .block-container {
-        max-width: 1200px;
-        padding: 2rem !important;
-    }
-    
-    .hero-card {
-        padding: 1.6rem 1.4rem;
-    }
-}
-
-/* Landscape mobile devices */
-@media only screen and (max-height: 600px) and (orientation: landscape) {
-    .main .block-container {
-        padding: 0.5rem !important;
-    }
-    
-    h1 {
-        font-size: 1.5rem !important;
-        margin-bottom: 0.3rem !important;
-    }
-    
-    .subtitle {
-        font-size: 0.9rem !important;
-        margin-bottom: 0.5rem;
-    }
-    
-    .hero-card {
-        padding: 0.8rem 0.6rem;
-        min-height: 100px;
-    }
-    
-    .hero-card .icon {
-        font-size: 1.3rem;
-        margin-bottom: 0.3rem;
-    }
-}
-
-/* High DPI displays */
-@media only screen and (-webkit-min-device-pixel-ratio: 2),
-       only screen and (min-resolution: 192dpi) {
-    body {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-    }
-}
-
-/* Print styles */
-@media print {
-    .stButton,
-    [data-testid="stSidebar"],
-    .footer-dark {
-        display: none !important;
-    }
-    
-    .main .block-container {
-        max-width: 100% !important;
-        padding: 0 !important;
-    }
-}
-</style>
-""", unsafe_allow_html=True)
-
-# ─── Hero Section ─────────────────────────────────────────────────────────────
-st.markdown("<h1>💰 Developer Salary Predictor</h1>", unsafe_allow_html=True)
-st.markdown(
-    "<p class='subtitle'>Predict compensation using ML models trained on Stack Overflow survey data</p>",
-    unsafe_allow_html=True,
-)
-
-col_a, col_b, col_c = st.columns(3)
-with col_a:
-    st.markdown("""<div class='hero-card'>
-        <div class='icon'>🎯</div>
-        <div class='card-title'>Accurate</div>
-        <div class='card-desc'>XGBoost gradient boosting trained on real developer survey data</div>
-    </div>""", unsafe_allow_html=True)
-with col_b:
-    st.markdown(f"""<div class='hero-card'>
-        <div class='icon'>🌍</div>
-        <div class='card-title'>Global</div>
-        <div class='card-desc'>{len(valid_categories['Country'])}+ countries with local currency conversion</div>
-    </div>""", unsafe_allow_html=True)
-with col_c:
-    st.markdown("""<div class='hero-card'>
-        <div class='icon'>⚡</div>
-        <div class='card-title'>Instant</div>
-        <div class='card-desc'>Get your personalized salary estimate in seconds</div>
-    </div>""", unsafe_allow_html=True)
-
-# ─── Sidebar ──────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## 📊 About")
-    st.markdown("---")
-
-    st.markdown("""
-**XGBoost** model trained on the Stack Overflow Developer Survey.
-
-#### Prediction Factors
-| | Factor |
-|---|---|
-| 🌍 | Country |
-| 💻 | Coding experience |
-| 👔 | Work experience |
-| 🎓 | Education |
-| 🔧 | Developer type |
-| 🏢 | Industry |
-| 👤 | Age |
-| 👥 | IC / Manager |
-    """)
-
-    st.info("💡 Results are estimates based on survey averages.")
-
-    st.markdown("---")
-    st.markdown("#### Coverage")
-
-    coverage_data = {
-        "🌍 Countries": len(valid_categories['Country']),
-        "🎓 Education": len(valid_categories['EdLevel']),
-        "👨‍💻 Dev Types": len(valid_categories['DevType']),
-        "🏢 Industries": len(valid_categories['Industry']),
-        "📅 Age Ranges": len(valid_categories['Age']),
-        "👥 Roles": len(valid_categories['ICorPM']),
-    }
-
-    for label, count in coverage_data.items():
-        st.markdown(f"**{label}:** `{count}`")
-
-    st.caption("Only values from the training set are available.")
-
-    st.markdown("---")
-    st.markdown("#### Tech Stack")
-    st.markdown("Streamlit · XGBoost · Pydantic · Pandas")
-
-# Main input form
-st.markdown("---")
-st.header("🔍 Enter Developer Information")
-st.markdown("Fill in the details below to get your salary prediction")
-
-# Create tabs for better organization
-tab1, tab2, tab3 = st.tabs(["👤 Personal Info", "💼 Professional Info", "🎯 Generate Prediction"])
-
-# Get valid categories from training
-valid_countries = valid_categories["Country"]
-valid_education_levels = valid_categories["EdLevel"]
-valid_dev_types = valid_categories["DevType"]
-valid_industries = valid_categories["Industry"]
-valid_ages = valid_categories["Age"]
-valid_icorpm = valid_categories["ICorPM"]
-
-# Set default values (if available)
-default_country = (
-    "United States of America"
-    if "United States of America" in valid_countries
-    else valid_countries[0]
-)
-default_education = (
-    "Bachelor's degree (B.A., B.S., B.Eng., etc.)"
-    if "Bachelor's degree (B.A., B.S., B.Eng., etc.)" in valid_education_levels
-    else valid_education_levels[0]
-)
-default_dev_type = (
-    "Developer, back-end"
-    if "Developer, back-end" in valid_dev_types
-    else valid_dev_types[0]
-)
-default_industry = (
-    "Software Development"
-    if "Software Development" in valid_industries
-    else valid_industries[0]
-)
-default_age = "25-34 years old" if "25-34 years old" in valid_ages else valid_ages[0]
-default_icorpm = (
-    "Individual contributor"
-    if "Individual contributor" in valid_icorpm
-    else valid_icorpm[0]
-)
-
-# Tab 1: Personal Information
-with tab1:
-    st.markdown("### 📍 Location & Demographics")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        country = st.selectbox(
-            "🌍 Country",
-            options=valid_countries,
-            index=valid_countries.index(default_country),
-            help="Your country of residence (impacts salary significantly)",
-        )
-        
-        age = st.selectbox(
-            "👤 Age Range",
-            options=valid_ages,
-            index=valid_ages.index(default_age),
-            help="Your current age range",
-        )
-    
-    with col2:
-        education = st.selectbox(
-            "🎓 Education Level",
-            options=valid_education_levels,
-            index=valid_education_levels.index(default_education),
-            help="Your highest level of education completed",
-        )
-        
-        ic_or_pm = st.selectbox(
-            "👥 Role Type",
-            options=valid_icorpm,
-            index=valid_icorpm.index(default_icorpm),
-            help="Are you an individual contributor or people manager?",
+    if local and local.get("code") != "USD":
+        result_cards.insert(
+            1,
+            _metric(
+                f"Annual Salary ({local['code']})",
+                f"{local['salary_local']:,.0f} {local['code']}",
+                f"Converted using 1 USD = {local['rate']} {local['code']} ({local['name']})",
+            ),
         )
 
-# Tab 2: Professional Information
-with tab2:
-    st.markdown("### 💼 Experience & Specialization")
-    
-    col3, col4 = st.columns(2)
-    
-    with col3:
-        years = st.number_input(
-            "💻 Total Years of Coding",
-            min_value=0,
-            max_value=50,
-            value=5,
-            step=1,
-            help="Including education, how many years have you been coding?",
-        )
-        
-        dev_type = st.selectbox(
-            "🔧 Developer Type",
-            options=valid_dev_types,
-            index=valid_dev_types.index(default_dev_type),
-            help="Your primary developer role or specialization",
-        )
-    
-    with col4:
-        work_exp = st.number_input(
-            "👔 Years of Professional Experience",
-            min_value=0,
-            max_value=50,
-            value=3,
-            step=1,
-            help="Years of professional work experience (not including education)",
-        )
-        
-        industry = st.selectbox(
-            "🏢 Industry",
-            options=valid_industries,
-            index=valid_industries.index(default_industry),
-            help="The industry sector you work in",
-        )
+    return """
+    <section class="panel success">
+      <div class="panel-kicker">Prediction complete</div>
+      <h2>Your estimated salary</h2>
+      <div class="metrics-grid">
+        {cards}
+      </div>
+      <p class="note">
+        This result is based on the trained model and should be treated as an estimate.
+        Real compensation can vary by company, location, and scope.
+      </p>
+    </section>
+    """.format(cards="\n".join(result_cards))
 
-# Tab 3: Prediction
-with tab3:
-    st.markdown("### 🎯 Ready to Predict?")
-    st.markdown("Review your information and hit the button below.")
-    
-    # Display summary
-    st.markdown("#### 📋 Summary")
-    summary_col1, summary_col2 = st.columns(2)
-    
-    with summary_col1:
-        st.markdown(f"""<div class='summary-card'>
-        <ul>
-            <li><strong>Country:</strong> {country}</li>
-            <li><strong>Age:</strong> {age}</li>
-            <li><strong>Education:</strong> {education}</li>
-            <li><strong>Role:</strong> {ic_or_pm}</li>
-        </ul></div>""", unsafe_allow_html=True)
-    
-    with summary_col2:
-        st.markdown(f"""<div class='summary-card'>
-        <ul>
-            <li><strong>Coding Years:</strong> {years}</li>
-            <li><strong>Work Exp:</strong> {work_exp} yrs</li>
-            <li><strong>Dev Type:</strong> {dev_type}</li>
-            <li><strong>Industry:</strong> {industry}</li>
-        </ul></div>""", unsafe_allow_html=True)
-    
-    st.markdown("---")
 
-    # Prediction button
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-    with col_btn2:
-        predict_button = st.button("🔮 Predict My Salary", type="primary", use_container_width=True)
-    
-    if predict_button:
+def _error_panel(message: str) -> str:
+    return f"""
+    <section class="panel error">
+      <div class="panel-kicker">Unable to predict</div>
+      <h2>Check the input or model file</h2>
+      <p>{escape(message)}</p>
+    </section>
+    """
+
+
+def _build_page(
+    *,
+    submitted: bool,
+    country: str,
+    years_code: float,
+    work_exp: float,
+    education_level: str,
+    dev_type: str,
+    industry: str,
+    age: str,
+    ic_or_pm: str,
+    result_html: str = "",
+) -> str:
+    page_result = result_html or """
+    <section class="panel empty">
+      <div class="panel-kicker">Ready when you are</div>
+      <h2>Generate a prediction</h2>
+      <p>Fill in the form and press Predict Salary to estimate annual compensation.</p>
+    </section>
+    """
+
+    form_html = f"""
+    <form class="form" method="get" action="/">
+      <input type="hidden" name="submitted" value="1">
+      <div class="section-title">Personal Info</div>
+      <div class="grid two-col">
+        <label>
+          <span>Country</span>
+          <select name="country">{_option_html(VALID_COUNTRIES, country)}</select>
+        </label>
+        <label>
+          <span>Age Range</span>
+          <select name="age">{_option_html(VALID_AGES, age)}</select>
+        </label>
+        <label>
+          <span>Education Level</span>
+          <select name="education_level">{_option_html(VALID_EDUCATION_LEVELS, education_level)}</select>
+        </label>
+        <label>
+          <span>Role Type</span>
+          <select name="ic_or_pm">{_option_html(VALID_IC_OR_PM, ic_or_pm)}</select>
+        </label>
+      </div>
+
+      <div class="section-title">Professional Info</div>
+      <div class="grid two-col">
+        <label>
+          <span>Total Years of Coding</span>
+          <input type="number" name="years_code" min="0" max="50" step="1" value="{years_code}">
+        </label>
+        <label>
+          <span>Years of Professional Experience</span>
+          <input type="number" name="work_exp" min="0" max="50" step="1" value="{work_exp}">
+        </label>
+        <label>
+          <span>Developer Type</span>
+          <select name="dev_type">{_option_html(VALID_DEV_TYPES, dev_type)}</select>
+        </label>
+        <label>
+          <span>Industry</span>
+          <select name="industry">{_option_html(VALID_INDUSTRIES, industry)}</select>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="submit">Predict Salary</button>
+      </div>
+    </form>
+    """
+
+    overview_cards = """
+    <div class="cards">
+      {card_1}
+      {card_2}
+      {card_3}
+    </div>
+    """.format(
+        card_1=_card("FastAPI", "Serves the UI and prediction API."),
+        card_2=_card("Pandas + scikit-learn", "Handle feature preparation and model inputs."),
+        card_3=_card("XGBoost", "Backs the trained salary prediction model."),
+    )
+
+    body_classes = "submitted" if submitted else "idle"
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Developer Salary Predictor</title>
+  <style>
+    :root {{
+      color-scheme: dark;
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel-2: #1c2333;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #f0b429;
+      --accent-2: #d4990a;
+      --good: #10b981;
+      --bad: #f43f5e;
+    }}
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, rgba(240, 180, 41, 0.08), transparent 34%), var(--bg);
+      color: var(--text);
+    }}
+    .shell {{ max-width: 1180px; margin: 0 auto; padding: 32px 20px 48px; }}
+    .hero {{ text-align: center; margin-bottom: 24px; }}
+    .eyebrow {{ color: var(--accent); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.78rem; }}
+    h1 {{ margin: 8px 0 10px; font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.05; }}
+    .subtitle {{ color: var(--muted); max-width: 820px; margin: 0 auto; font-size: 1.02rem; line-height: 1.6; }}
+    .cards {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 28px 0; }}
+    .card, .panel, .form {{ background: rgba(22, 27, 34, 0.98); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22); }}
+    .card {{ padding: 18px; }}
+    .card-title, .section-title, .panel-kicker {{ color: var(--accent); font-weight: 700; }}
+    .card-body, .panel p {{ color: var(--muted); line-height: 1.55; }}
+    .layout {{ display: grid; grid-template-columns: 1.2fr 0.95fr; gap: 18px; align-items: start; }}
+    .form {{ padding: 22px; }}
+    .section-title {{ margin: 10px 0 12px; font-size: 0.92rem; letter-spacing: 0.08em; text-transform: uppercase; }}
+    .grid {{ display: grid; gap: 14px; }}
+    .two-col {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    label {{ display: grid; gap: 8px; font-size: 0.92rem; color: var(--text); }}
+    label span {{ color: var(--muted); font-weight: 600; }}
+    input, select {{ width: 100%; min-height: 46px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); padding: 0.8rem 0.9rem; font-size: 1rem; }}
+    input:focus, select:focus {{ outline: 2px solid rgba(240, 180, 41, 0.28); border-color: var(--accent); }}
+    .actions {{ margin-top: 18px; }}
+    button {{ width: 100%; min-height: 50px; border: none; border-radius: 14px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color: #0d1117; font-size: 1rem; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(240, 180, 41, 0.25); }}
+    .result-column {{ display: grid; gap: 18px; }}
+    .panel {{ padding: 22px; }}
+    .panel h2 {{ margin: 8px 0 10px; font-size: 1.5rem; }}
+    .metrics-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }}
+    .metric {{ background: rgba(28, 35, 51, 0.88); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }}
+    .metric-label {{ color: var(--muted); font-size: 0.9rem; }}
+    .metric-value {{ font-size: 1.5rem; font-weight: 800; margin-top: 6px; }}
+    .metric-subtitle {{ color: var(--muted); font-size: 0.84rem; margin-top: 6px; line-height: 1.45; }}
+    .success {{ border-color: rgba(16, 185, 129, 0.36); }}
+    .error {{ border-color: rgba(244, 63, 94, 0.38); }}
+    .empty {{ border-style: dashed; }}
+    .note {{ margin-top: 14px; font-size: 0.93rem; }}
+    .footer {{ text-align: center; color: var(--muted); margin-top: 22px; font-size: 0.92rem; }}
+    .hero-meta {{ margin-top: 16px; color: var(--muted); }}
+    @media (max-width: 980px) {{
+      .layout, .cards {{ grid-template-columns: 1fr; }}
+      .two-col, .metrics-grid {{ grid-template-columns: 1fr; }}
+    }}
+  </style>
+</head>
+<body class="{body_classes}">
+  <main class="shell">
+    <section class="hero">
+      <div class="eyebrow">Developer Salary Predictor</div>
+      <h1>FastAPI salary predictions with a simple browser UI</h1>
+      <p class="subtitle">
+        Enter your background and role details, then get an estimated annual salary from the trained regression model.
+      </p>
+      <div class="hero-meta">FastAPI · Pandas · scikit-learn · XGBoost · Pydantic</div>
+    </section>
+
+    {overview_cards}
+
+    <section class="layout">
+      <div>
+        {form_html}
+      </div>
+      <div class="result-column">
+        {page_result}
+      </div>
+    </section>
+    <div class="footer">Built for local prediction workflows and lightweight deployment.</div>
+  </main>
+</body>
+</html>"""
+
+
+@app.get("/", response_class=HTMLResponse)
+def home(
+    submitted: bool = Query(False),
+    country: str = Query(DEFAULT_COUNTRY),
+    years_code: float = Query(5.0, ge=0),
+    work_exp: float = Query(3.0, ge=0),
+    education_level: str = Query(DEFAULT_EDUCATION),
+    dev_type: str = Query(DEFAULT_DEV_TYPE),
+    industry: str = Query(DEFAULT_INDUSTRY),
+    age: str = Query(DEFAULT_AGE),
+    ic_or_pm: str = Query(DEFAULT_IC_OR_PM),
+) -> HTMLResponse:
+    result_html = ""
+
+    if submitted:
         try:
-            # Create input model
             input_data = SalaryInput(
                 country=country,
-                years_code=years,
+                years_code=years_code,
                 work_exp=work_exp,
-                education_level=education,
+                education_level=education_level,
                 dev_type=dev_type,
                 industry=industry,
                 age=age,
                 ic_or_pm=ic_or_pm,
             )
+            salary = predict_salary(input_data)
+            result_html = _result_panel(salary, input_data.country)
+        except Exception as exc:
+            result_html = _error_panel(str(exc))
 
-            # Make prediction
-            with st.spinner("🤖 AI is analyzing your profile..."):
-                salary = predict_salary(input_data)
+    return HTMLResponse(
+        _build_page(
+            submitted=submitted,
+            country=country,
+            years_code=years_code,
+            work_exp=work_exp,
+            education_level=education_level,
+            dev_type=dev_type,
+            industry=industry,
+            age=age,
+            ic_or_pm=ic_or_pm,
+            result_html=result_html,
+        )
+    )
 
-            # Display result with animation
-            st.markdown("<div class='result-container'>", unsafe_allow_html=True)
-            st.balloons()
-            st.success("✅ Prediction Complete!")
-            
-            st.markdown("### 💵 Your Predicted Salary")
 
-            # Show USD and local currency side by side
-            local = get_local_currency(country, salary)
-            if local and local["code"] != "USD":
-                col_usd, col_local = st.columns(2)
-                with col_usd:
-                    st.metric(
-                        label="💵 Annual Salary (USD)",
-                        value=f"${salary:,.0f}",
-                        help="Predicted annual compensation in US Dollars",
-                    )
-                with col_local:
-                    st.metric(
-                        label=f"💰 Annual Salary ({local['code']})",
-                        value=f"{local['salary_local']:,.0f} {local['code']}",
-                        help=f"Converted using survey rate: 1 USD = {local['rate']} {local['code']} ({local['name']})",
-                    )
-                
-                # Additional insights
-                st.markdown("---")
-                st.markdown("#### 📊 Additional Insights")
-                insight_col1, insight_col2, insight_col3 = st.columns(3)
-                
-                with insight_col1:
-                    monthly_usd = salary / 12
-                    st.metric("📅 Monthly (USD)", f"${monthly_usd:,.0f}")
-                
-                with insight_col2:
-                    hourly_usd = salary / (52 * 40)  # Assuming 40 hours/week
-                    st.metric("⏰ Hourly (USD)", f"${hourly_usd:,.0f}")
-                
-                with insight_col3:
-                    if local:
-                        monthly_local = local['salary_local'] / 12
-                        st.metric(f"📅 Monthly ({local['code']})", f"{monthly_local:,.0f}")
-            else:
-                st.metric(
-                    label="💵 Estimated Annual Salary",
-                    value=f"${salary:,.0f}",
-                    help="Predicted annual compensation in USD",
-                )
-                
-                # Additional insights for USD only
-                st.markdown("---")
-                st.markdown("#### 📊 Salary Breakdown")
-                insight_col1, insight_col2, insight_col3 = st.columns(3)
-                
-                with insight_col1:
-                    monthly_usd = salary / 12
-                    st.metric("📅 Monthly", f"${monthly_usd:,.0f}")
-                
-                with insight_col2:
-                    hourly_usd = salary / (52 * 40)
-                    st.metric("⏰ Hourly", f"${hourly_usd:,.0f}")
-                
-                with insight_col3:
-                    weekly_usd = salary / 52
-                    st.metric("📆 Weekly", f"${weekly_usd:,.0f}")
-            
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            # Disclaimer
-            st.info("ℹ️ **Note:** This prediction is based on survey data and represents an estimate. Actual salaries may vary based on company size, specific skills, location within country, and other factors not captured in this model.")
+@app.post("/api/predict")
+def api_predict(payload: SalaryInput) -> JSONResponse:
+    salary = predict_salary(payload)
+    local = get_local_currency(payload.country, salary)
+    return JSONResponse(
+        {
+            "salary_usd": round(salary, 2),
+            "salary_local": local,
+            "input": payload.model_dump(),
+        }
+    )
 
-        except FileNotFoundError:
-            st.error(
-                """
-                ❌ **Model Not Found!** 
-                
-                Please train the model first by running:
-                ```bash
-                python src/train.py
-                ```
-                """
-            )
-        except Exception as e:
-            st.error(f"❌ **Error:** {str(e)}")
-            st.exception(e)
 
-# ─── Footer ───────────────────────────────────────────────────────────────────
-st.markdown("---")
-st.markdown("""
-<div class='footer-dark'>
-    <p><strong>Developer Salary Predictor</strong></p>
-    <p>Streamlit · Stack Overflow Survey · XGBoost</p>
-    <p style='margin-top:0.5rem;'>© 2026 — built for developers</p>
-</div>
-""", unsafe_allow_html=True)
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
 
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

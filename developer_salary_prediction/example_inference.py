@@ -11,7 +11,7 @@ def main():
     print("Developer Salary Prediction - Sample Inference")
     print("=" * 60)
 
-    # Example 1: Default parameters (same as Streamlit app defaults)
+    # Example 1: Default parameters (same as the web app defaults)
     print("\n📊 Example 1: Default Parameters")
     print("-" * 60)
 
