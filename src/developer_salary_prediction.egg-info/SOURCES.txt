@@ -1,0 +1,16 @@
+LICENSE
+README.md
+pyproject.toml
+src/__init__.py
+src/infer.py
+src/preprocessing.py
+src/schema.py
+src/train.py
+src/developer_salary_prediction.egg-info/PKG-INFO
+src/developer_salary_prediction.egg-info/SOURCES.txt
+src/developer_salary_prediction.egg-info/dependency_links.txt
+src/developer_salary_prediction.egg-info/requires.txt
+src/developer_salary_prediction.egg-info/top_level.txt
+tests/test_infer.py
+tests/test_preprocessing.py
+tests/test_schema.py
